@@ -15,6 +15,7 @@ from ..modules.util import GetConfig
 from ..modules.util import Utils
 from .cluster_create import CreateCluster
 from .cluster_attach import AttachCluster
+from ..modules.analytics_utils import SegmentSession
 
 def print_help_msg(command):
     with click.Context(command) as ctx:
@@ -230,6 +231,8 @@ def cluster():
 def create(ctx, **kwargs):
     """Create a Kubernetes cluster"""
 
+    segment_session = SegmentSession()
+    segment_session.send_track('CLI create cluster started', 'started', '1 of ?', 'CLI create cluster')
     master_ips = ctx.params['master_ip']
     ctx.params['master_ip'] = ''.join(master_ips).split(' ') if all(len(x)==1 for x in master_ips) else list(master_ips)
 
@@ -263,11 +266,17 @@ def create(ctx, **kwargs):
                                          ctx.params['ssh_key'])
                     adj_ips = adj_ips + (ip,)
 
+
+            segment_session.send_track('CLI create cluster prep node started',
+                                       'started', '2 of ?',
+                                       'CLI create cluster')
             # Will throw in case of failed run
             rcode, out_file = prep_node(ctx, ctx.params['user'], ctx.params['password'],
                                         ctx.params['ssh_key'], adj_ips,
                                         node_prep_only=True)
-
+            segment_session.send_track('CLI create cluster prep node ended',
+                                       'ended', '3 of ?',
+                                       'CLI create cluster')
         cluster_uuid = create_cluster(ctx)
         click.echo("Cluster UUID: {}".format(cluster_uuid))
 
