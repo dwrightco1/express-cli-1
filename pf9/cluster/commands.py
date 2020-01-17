@@ -135,6 +135,19 @@ def get_token_project(ctx):
 
     return token, project_id
 
+def get_token_project_user_id(ctx):
+    GetConfig(ctx).GetActiveConfig()
+
+    # Get Token and Tenant ID (app pulling tenant_ID "project_id" into get_token)
+    auth_obj = GetToken()
+    token, project_id, user_id = auth_obj.get_token_project_user_id(
+                ctx.params["du_url"],
+                ctx.params["du_username"],
+                ctx.params["du_password"],
+                ctx.params["du_tenant"] )
+
+    return token, project_id, user_id
+
 def create_cluster(ctx):
     
     # create cluster
@@ -232,7 +245,8 @@ def create(ctx, **kwargs):
     """Create a Kubernetes cluster"""
 
     segment_session = SegmentSession()
-    segment_session.send_track('CLI create cluster started', 'started', '1 of ?', 'CLI create cluster')
+    print("NEW segment_session active")
+    segment_session.send_track('WZ PMKExpress CLI - Create cluster - 1', 'started')
     master_ips = ctx.params['master_ip']
     ctx.params['master_ip'] = ''.join(master_ips).split(' ') if all(len(x)==1 for x in master_ips) else list(master_ips)
 
@@ -247,8 +261,12 @@ def create(ctx, **kwargs):
     try:
         check_vip_needed(ctx.params['master_ip'], ctx.params.get('mastervip', None),
                          ctx.params.get('mastervipif', None))
+        segment_session.send_track('WZ PMKExpress CLI - Create cluster - Validate VIP - 2', 'in-progress')
 
-        ctx.params['token'], ctx.params['project_id'] = get_token_project(ctx)
+        ctx.params['token'], ctx.params['project_id'], ctx.params['user_id'] = get_token_project_user_id(ctx)
+        segment_session.send_identify(ctx.params['du_username'], ctx.params['user_id'])
+        segment_session.send_track('WZ PMKExpress CLI - Create cluster - Validate keystone credentials - 3', 'in-progress',
+                                   user_id=ctx.params['user_id'])
 
         if len(all_ips) > 0:
             # Nodes are provided. So prep them.
@@ -266,18 +284,20 @@ def create(ctx, **kwargs):
                                          ctx.params['ssh_key'])
                     adj_ips = adj_ips + (ip,)
 
-
-            segment_session.send_track('CLI create cluster prep node started',
-                                       'started', '2 of ?',
-                                       'CLI create cluster')
+            segment_session.send_track('WZ PMKExpress CLI - Create cluster - Validate SSH credentials - 4',
+                                       'in-progress',
+                                       user_id=ctx.params['user_id'])
             # Will throw in case of failed run
             rcode, out_file = prep_node(ctx, ctx.params['user'], ctx.params['password'],
                                         ctx.params['ssh_key'], adj_ips,
                                         node_prep_only=True)
-            segment_session.send_track('CLI create cluster prep node ended',
-                                       'ended', '3 of ?',
-                                       'CLI create cluster')
+            segment_session.send_track('WZ PMKExpress CLI - Create cluster - Prep node - 5',
+                                       'in-progress',
+                                       user_id=ctx.params['user_id'])
         cluster_uuid = create_cluster(ctx)
+        segment_session.send_track('WZ PMKExpress CLI - Create cluster - Create cluster - 6',
+                                   'in-progress',
+                                   user_id=ctx.params['user_id'])
         click.echo("Cluster UUID: {}".format(cluster_uuid))
 
         if len(all_ips) > 0:
@@ -302,11 +322,17 @@ def create(ctx, **kwargs):
                     worker_ips = worker_ips + (ip,)
 
             attach_cluster(ctx.params['cluster_name'], master_ips, worker_ips, ctx)
+            segment_session.send_track('WZ PMKExpress CLI - Create cluster - Attach cluster - 7',
+                                       'in-progress',
+                                       user_id=ctx.params['user_id'])
     except CLIException as e:
         click.secho("Failed to create cluster {}. {}".format(
                     ctx.params['cluster_name'], e.msg), fg="red")
         sys.exit(1)
 
+    segment_session.send_track('WZ PMKExpress CLI - Create cluster - 8',
+                               'done',
+                               user_id=ctx.params['user_id'])
     click.secho("Successfully created cluster {} "\
                 "using this node".format(ctx.params['cluster_name']),
                 fg="green")

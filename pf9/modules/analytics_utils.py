@@ -29,21 +29,23 @@ class SegmentSession:
 
 
 
-    def send_track(self, wizard_step, wizard_state, wizard_progress, wizard_name, user_id=None):
-
+    def send_track(self, event_name, wizard_state, user_id=None):
+    # wizard_progress: started, in-progress or ended
+    # event_name: WZ PF9Express - KubeCTL 6
+    # wizard_step: 20
         track_dict = {
             'anonymousId': self.anonymousId,
-            'wizard_step': wizard_step,
+            'wizard_name': event_name,
             'wizard_state': wizard_state,
-            'wizard_progress': wizard_progress,
-            'wizard_name': wizard_name,
-            'device_id': self.device_id,
+            'installation_id': self.device_id,
             'deployment_type': 'BareOS'
         }
+        track_user_id = self.anonymousId
         if user_id:
             track_dict['user_id'] = user_id
+            track_user_id = user_id
 
-        analytics.track(self.anonymousId, wizard_name, track_dict,
+        analytics.track(track_user_id, event_name, track_dict,
             anonymous_id=self.anonymousId,
             # The 'integrations array begin passed below is how the 'session' identifier is passed into Amplitude
             integrations={
@@ -53,14 +55,17 @@ class SegmentSession:
             }
         )
 
-    def send_identify(self):
-        analytics.identify('', {
+    def send_identify(self, email, user_id):
+        analytics.identify(user_id, {
             'anonymousId': self.anonymousId,
-            'device_id': self.device_id,
-            'bare_os_deployment': 'Activated',
-            'bare_os_deployment_state': 'Initialized',
+            'installation_id': self.device_id,
+            'email': email,
+            'user_id': user_id,
+            'deviceId': user_id,
             # all DATE and TIME submissions need to be in ISO 8601 format
             'createdAt': datetime.datetime.now().isoformat(),
             },
            anonymous_id=self.anonymousId,
         )
+        # Associate old unauthenticated events to post-authenticated events
+        analytics.alias(self.anonymousId, user_id)
