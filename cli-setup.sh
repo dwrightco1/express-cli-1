@@ -134,30 +134,31 @@ init_venv_python() {
     fi
     stdout_log "Initializing Virtual Environment using Python ${python_version}"
     #Validate and initialize virtualenv
-    if ! (virtualenv --version > /dev/null 2>&1); then
+    if ! (${local_virtualenv} --version > /dev/null 2>&1); then
         debugging "Validating pip"
-	if ! which pip > /dev/null 2>&1; then
+	if ! which ${local_pip} > /dev/null 2>&1; then
             debugging "ERROR: missing package: pip (attempting to install using get-pip.py)"
             curl -s -o ${pip_path} ${pip_url}
             if [ ! -r ${pip_path} ]; then assert "failed to download get-pip.py (from ${pip_url})"; fi
 
-            if ! (python${pyver} "${pip_path}"); then
+            if ! (python${pyver} "${pip_path}" --user); then
                 debugging "ERROR: failed to install package: pip (attempting to install via 'sudo get-pip.py')"
-                if (sudo python${pyver} "${pip_path}" > /dev/null 2>&1); then
+                if (sudo python${pyver} "${pip_path}" --user > /dev/null 2>&1); then
                     assert "Please install package: pip"
                 fi
             fi
         fi
 	debugging "ERROR: missing python package: virtualenv (attempting to install via 'pip install virtualenv')"
         # Attemping to Install virtualenv
-        if ! (pip${pyver} install virtualenv > /dev/null 2>&1); then
+        if ! (${local_pip}${pyver} install virtualenv --user --ignore-installed > /dev/null 2>&1); then
             debugging "ERROR: failed to install python package (attempting to install via 'sudo pip install virtualenv')"
-            if ! (sudo pip${pyver} install virtualenv > /dev/null 2>&1); then
+            if ! (sudo pip${pyver} install virtualenv --user --ignore-installed > /dev/null 2>&1); then
                 assert "Please install the 'virtualenv' module using 'pip install virtualenv'"
             fi
         fi
     fi
-    if ! (virtualenv -p python${pyver} --system-site-packages ${venv} > /dev/null 2>&1); then
+    debugging "INFO: ${local_virtualenv} -p python${pyver} --system-site-packages ${venv} > /dev/null 2>&1"
+    if ! (${local_virtualenv} -p python${pyver} --system-site-packages ${venv} > /dev/null 2>&1); then
         assert "Creation of virtual environment failed"
     fi
     debugging "venv_python: ${venv_python}"
@@ -322,7 +323,8 @@ pip_url="https://bootstrap.pypa.io/get-pip.py"
 cli_entrypoint=$(dirname ${venv_python})/express
 cli_exec=${pf9_bin}/pf9ctl
 pf9_bash_profile=${pf9_bin}/pf9-bash-profile.sh
-
+local_pip=$(dirname ~/.)/.local/bin/pip
+local_virtualenv=$(dirname ~/.)/.local/bin/virtualenv
 
 # configure python virtual environment
 stdout_log "Configuring virtualenv"

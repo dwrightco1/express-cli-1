@@ -373,9 +373,9 @@ def attach_node(ctx, **kwargs):
               help='SSH key for nodes.')
 @click.option('--ips', '-i', multiple=True,
               help='IPs of the host to be prepared. Specify multiple IPs by repeating this option.')
-@click.option('--floating-ip', '-f', multiple=True, hidden=True)
+@click.option('--floating-ip', '-f', default=None, multiple=True, hidden=True)
 @click.pass_context
-def prepnode(ctx, user, password, ssh_key, ips):
+def prepnode(ctx, user, password, ssh_key, ips, floating_ip):
     """
     Prepare a node to be ready to be added to a Kubernetes cluster. Read more at http://pf9.io/cli_clprep.
     """
